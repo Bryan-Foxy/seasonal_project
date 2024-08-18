@@ -10,12 +10,12 @@ class NER:
         if lang == "fr":
             self.nlp = spacy.load('fr_core_news_sm')
         else:
-            self.nlp = spacy.load('en_core_sm')
+            self.nlp = spacy.load('en_core_web_sm')
     
     def _load_data(self):
         with open(self.path, "r") as f:
             data = json.load(f)
-        text_data = " ".join(item['text'] for item in data['detection'])
+        text_data = " ".join(item['text'] for item in data)
         return text_data 
     
     def detection(self):
@@ -26,6 +26,7 @@ class NER:
         extracted_entities = {
             "names": [],
             "prices": [],
+            "dates": [],
             "organizations": []
         }
         for ent in tqdm(doc.ents):
@@ -33,11 +34,14 @@ class NER:
                 extracted_entities["names"].append(ent.text)
             elif ent.label_ == "ORG":
                 extracted_entities["organizations"].append(ent.text)
+            elif ent.label_ == "DATE":
+                extracted_entities["dates"].append(ent.text)
             elif ent.label == ["MONEY","NUM"]:
                 extracted_entities["prices"].append(ent.text)
         
         print("Noms:", extracted_entities["names"])
         print("Organisations:", extracted_entities["organizations"])
+        print("Date:", extracted_entities["dates"])
         print("Prix:", extracted_entities["prices"])
 
 
