@@ -52,6 +52,8 @@ class OCR:
         
         if plot:
             self._plot(save = True)
+            
+        return detections
         
 
 if __name__ == "__main__":

@@ -44,6 +44,8 @@ class NER:
         print("Date:", extracted_entities["dates"])
         print("Prix:", extracted_entities["prices"])
 
+        return extracted_entities
+
 
 if __name__ == "__main__":
     path = "api/text_detect.json"
