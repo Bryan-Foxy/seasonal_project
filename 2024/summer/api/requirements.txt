@@ -1,0 +1,8 @@
+easyocr==1.7.1
+Flask==3.0.3
+matplotlib==3.8.4
+opencv_python==4.10.0.84
+opencv_python_headless==4.10.0.84
+spacy==3.7.5
+tqdm==4.66.4
+Werkzeug==3.0.3
