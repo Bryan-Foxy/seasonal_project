@@ -1,0 +1,1 @@
+[Link of explained ressources](https://blog.paperspace.com/building-a-checkers-gaming-agent-using-neural-networks-and-reinforcement-learning/)
