@@ -1,3 +1,5 @@
+import time
+import pygame
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense
@@ -26,6 +28,52 @@ from keras.models import model_from_json
 #	w/w/w/w/
 #	/w/w/w/w
 #	w/w/w/w/	* since pieces only mmove diagonally, only 32 squares are used
+
+
+# time elapsed
+def get_time_elapsed(start_time):
+    elapsed_time = time.time() - start_time
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
+    return f"{minutes:02}:{seconds:02}"
+
+# round 
+def get_round():
+    global round_number
+    return round_number
+
+# box 1 (general information)
+def draw_box1(screen, font, font2, start_time, window_size, color, color2, color3):
+	box = pygame.draw.rect(surface = screen, color = color, rect = (window_size, 0, 200, 150), width = 2)
+	title_text = font.render("GENERAL", True, color)
+	screen.blit(title_text, (window_size + 10, 5))
+
+	# Players
+	player_blue = font2.render("Player in blue: EFE", True, color2)
+	player_red = font2.render("Player in red: EFE", True, color3)
+	current_player = font2.render("Current player: Blue", True, color)
+	screen.blit(player_blue, (window_size + 10, 50))
+	screen.blit(player_red, (window_size + 10, 65))
+	screen.blit(current_player, (window_size + 10, 80))
+
+	# Rule
+	checkers_shape = font2.render("Shape: (8*8)", True, color)
+	rule_text = font2.render("American rules", True, color)
+	screen.blit(rule_text, (window_size + 10, 95))
+	screen.blit(checkers_shape, (window_size + 10, 110))
+
+	# Round
+	round_text = font2.render("Round: 1", True, color)
+	screen.blit(round_text, (window_size + 10, 125))
+
+
+	time_text = font2.render("Time elapsed: {}".format(get_time_elapsed(start_time)), True, color)
+	screen.blit(time_text, (window_size + 10, 30))
+
+
+
+
+
 
 # number of opponent pieces captured (max = 12)
 def num_captured(board):
@@ -313,117 +361,118 @@ def generate_next(board):
 						board[i-1, j-1] = 0
 	return bb[1:]
 
-# generative model, which only looks at heuristic scoring metrics used for labeling
-gen_model = Sequential()
-gen_model.add(Dense(32, activation='relu', input_dim=10)) 
-gen_model.add(Dense(16, activation='relu',  kernel_regularizer=regularizers.l2(0.1)))
+if __name__ == "__main__":
+	# generative model, which only looks at heuristic scoring metrics used for labeling
+	gen_model = Sequential()
+	gen_model.add(Dense(32, activation='relu', input_dim=10)) 
+	gen_model.add(Dense(16, activation='relu',  kernel_regularizer=regularizers.l2(0.1)))
 
-# output is passed to relu() because labels are binary
-gen_model.add(Dense(1, activation='relu',  kernel_regularizer=regularizers.l2(0.1)))
-gen_model.compile(optimizer='nadam', loss='binary_crossentropy')
+	# output is passed to relu() because labels are binary
+	gen_model.add(Dense(1, activation='relu',  kernel_regularizer=regularizers.l2(0.1)))
+	gen_model.compile(optimizer='nadam', loss='binary_crossentropy')
 
-board_0 = expand(np_board())
-boards_1 = generate_next(board_0)
-boards_2 = np.zeros((0,32))
+	board_0 = expand(np_board())
+	boards_1 = generate_next(board_0)
+	boards_2 = np.zeros((0,32))
 
-counter_1 = counter_2 = 0
+	counter_1 = counter_2 = 0
 
-# generate 5 sets of 1000 game states, used to train generative model
-for i in range(0, 5):
-	while (len(boards_1) + len(boards_2) < 1000):
-		temp = counter_1
-		for counter_1 in range(temp, min(temp + 10, len(boards_1))):
-			if (possible_moves(reverse(expand(boards_1[counter_1]))) > 0):
-				boards_2 = np.vstack((boards_2, generate_next(reverse(expand(boards_1[counter_1])))))
-		temp = counter_2
-		for counter_2 in range(temp, min(temp + 10, len(boards_2))):
-			if (possible_moves(expand(boards_2[counter_2])) > 0):
-				boards_1 = np.vstack((boards_1, generate_next(expand(boards_2[counter_2]))))
+	# generate 5 sets of 1000 game states, used to train generative model
+	for i in range(0, 5):
+		while (len(boards_1) + len(boards_2) < 1000):
+			temp = counter_1
+			for counter_1 in range(temp, min(temp + 10, len(boards_1))):
+				if (possible_moves(reverse(expand(boards_1[counter_1]))) > 0):
+					boards_2 = np.vstack((boards_2, generate_next(reverse(expand(boards_1[counter_1])))))
+			temp = counter_2
+			for counter_2 in range(temp, min(temp + 10, len(boards_2))):
+				if (possible_moves(expand(boards_2[counter_2])) > 0):
+					boards_1 = np.vstack((boards_1, generate_next(expand(boards_2[counter_2]))))
 
-	# concat 1000 game states
-	data = np.vstack((boards_1, boards_2))
-	boards_2 = np.zeros((0, 32))
-	counter_2 = 0
-	boards_1 = np.vstack((boards_1[-10:], generate_next(board_0)))
-	counter_1 = len(boards_1) - 1
-	metrics = np.zeros((0, 11))
+		# concat 1000 game states
+		data = np.vstack((boards_1, boards_2))
+		boards_2 = np.zeros((0, 32))
+		counter_2 = 0
+		boards_1 = np.vstack((boards_1[-10:], generate_next(board_0)))
+		counter_1 = len(boards_1) - 1
+		metrics = np.zeros((0, 11))
 
-	# calculate/save heuristic metrics for each game state
-	for board in iter(data):
-		metrics = np.vstack((metrics, get_metrics(board)))
+		# calculate/save heuristic metrics for each game state
+		for board in iter(data):
+			metrics = np.vstack((metrics, get_metrics(board)))
 
-	# pass to generative model
-	print("Shape: ", metrics.shape)
-	gen_model.fit(metrics[:, 1:], metrics[:, 0], epochs=32, batch_size=64)
+		# pass to generative model
+		print("Shape: ", metrics.shape)
+		gen_model.fit(metrics[:, 1:], metrics[:, 0], epochs=32, batch_size=64)
 
-# discriminative model
-disc_model = Sequential()
+	# discriminative model
+	disc_model = Sequential()
 
-# input dimensions is 32 board position values (and 10 heuristic metrics - removed)
-disc_model.add(Dense(64 , activation='relu', input_dim=32))
+	# input dimensions is 32 board position values (and 10 heuristic metrics - removed)
+	disc_model.add(Dense(64 , activation='relu', input_dim=32))
 
-# use regularizers, to prevent fitting noisy labels
-disc_model.add(Dense(32 , activation='relu', kernel_regularizer=regularizers.l2(0.01)))
-disc_model.add(Dense(16 , activation='relu', kernel_regularizer=regularizers.l2(0.01))) # 16
-disc_model.add(Dense(8 , activation='relu', kernel_regularizer=regularizers.l2(0.01))) # 8
+	# use regularizers, to prevent fitting noisy labels
+	disc_model.add(Dense(32 , activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+	disc_model.add(Dense(16 , activation='relu', kernel_regularizer=regularizers.l2(0.01))) # 16
+	disc_model.add(Dense(8 , activation='relu', kernel_regularizer=regularizers.l2(0.01))) # 8
 
-# output isn't squashed, because it might lose information
-disc_model.add(Dense(1 , activation='linear', kernel_regularizer=regularizers.l2(0.01)))
-disc_model.compile(optimizer='nadam', loss='binary_crossentropy')
+	# output isn't squashed, because it might lose information
+	disc_model.add(Dense(1 , activation='linear', kernel_regularizer=regularizers.l2(0.01)))
+	disc_model.compile(optimizer='nadam', loss='binary_crossentropy')
 
-boards_1 = generate_next(board_0)
-boards_2 = np.zeros((0,32))
-counter_1 = counter_2 = 0
+	boards_1 = generate_next(board_0)
+	boards_2 = np.zeros((0,32))
+	counter_1 = counter_2 = 0
 
-# generative 32 sets of 1000 game states, used to train discriminative model
-for i in range(0, 32):
-	while (len(boards_1) + len(boards_2) < 1000):
-		temp = counter_1
-		for counter_1 in range(temp, min(temp + 10, len(boards_1))):
-			if (possible_moves(reverse(expand(boards_1[counter_1]))) > 0):
-				boards_2 = np.vstack((boards_2, generate_next(reverse(expand(boards_1[counter_1])))))
-		temp = counter_2
-		for counter_2 in range(temp, min(temp + 10, len(boards_2))):
-			if (possible_moves(expand(boards_2[counter_2])) > 0):
-				boards_1 = np.vstack((boards_1, generate_next(expand(boards_2[counter_2]))))
+	# generative 32 sets of 1000 game states, used to train discriminative model
+	for i in range(0, 32):
+		while (len(boards_1) + len(boards_2) < 1000):
+			temp = counter_1
+			for counter_1 in range(temp, min(temp + 10, len(boards_1))):
+				if (possible_moves(reverse(expand(boards_1[counter_1]))) > 0):
+					boards_2 = np.vstack((boards_2, generate_next(reverse(expand(boards_1[counter_1])))))
+			temp = counter_2
+			for counter_2 in range(temp, min(temp + 10, len(boards_2))):
+				if (possible_moves(expand(boards_2[counter_2])) > 0):
+					boards_1 = np.vstack((boards_1, generate_next(expand(boards_2[counter_2]))))
 
-	data = np.vstack((boards_1, boards_2))
-	boards_2 = np.zeros((0, 32))
-	counter_2 = 0
-	boards_1 = np.vstack((boards_1[-10:], generate_next(board_0)))
-	counter_1 = len(boards_1) - 1
+		data = np.vstack((boards_1, boards_2))
+		boards_2 = np.zeros((0, 32))
+		counter_2 = 0
+		boards_1 = np.vstack((boards_1[-10:], generate_next(board_0)))
+		counter_1 = len(boards_1) - 1
 
-	# calculate heuristic metric for data
-	metrics = np.zeros((0, 11))
-	for board in iter(data):
-		metrics = np.vstack((metrics, get_metrics(board)))
+		# calculate heuristic metric for data
+		metrics = np.zeros((0, 11))
+		for board in iter(data):
+			metrics = np.vstack((metrics, get_metrics(board)))
 
-	# maybe pass it to generative model too
-	if (np.random.random() > 0.75):
-		gen_model.fit(metrics[:, 1:], metrics[:, 0], epochs=16, batch_size=32, verbose=0)
+		# maybe pass it to generative model too
+		if (np.random.random() > 0.75):
+			gen_model.fit(metrics[:, 1:], metrics[:, 0], epochs=16, batch_size=32, verbose=0)
 
-	# calculate probilistic (noisy) labels
-	probabilistic = gen_model.predict_on_batch(metrics[:, 1:])
+		# calculate probilistic (noisy) labels
+		probabilistic = gen_model.predict_on_batch(metrics[:, 1:])
 
-	# calculate confidence score for each probabilistic label using error between probabilistic and weak label
-	confidence = 1/(1 + np.absolute(metrics[:, 0] - probabilistic[:, 0]))
+		# calculate confidence score for each probabilistic label using error between probabilistic and weak label
+		confidence = 1/(1 + np.absolute(metrics[:, 0] - probabilistic[:, 0]))
 
-	# fit labels to {-1, 1}
-	probabilistic = np.sign(probabilistic)
+		# fit labels to {-1, 1}
+		probabilistic = np.sign(probabilistic)
 
-	# concat board position data with heurstic metric and pass for training - removed
-	# data = np.hstack((data, metrics[:, 1:]))
-	disc_model.fit(data, probabilistic, epochs=32, batch_size=64, sample_weight=confidence, verbose=0)
+		# concat board position data with heurstic metric and pass for training - removed
+		# data = np.hstack((data, metrics[:, 1:]))
+		disc_model.fit(data, probabilistic, epochs=32, batch_size=64, sample_weight=confidence, verbose=0)
 
-# save models
-gen_json = gen_model.to_json()
-with open('gen.json', 'w') as json_file:
-	json_file.write(gen_json)
-gen_model.save_weights('gen.h5')
+	# save models
+	gen_json = gen_model.to_json()
+	with open('gen.json', 'w') as json_file:
+		json_file.write(gen_json)
+	gen_model.save_weights('gen.h5')
 
-disc_json = disc_model.to_json()
-with open('disc.json', 'w') as json_file:
-	json_file.write(disc_json)
-disc_model.save_weights('disc.h5')
+	disc_json = disc_model.to_json()
+	with open('disc.json', 'w') as json_file:
+		json_file.write(disc_json)
+	disc_model.save_weights('disc.h5')
 
-print('Checkers Model saved to: gen.json/h5 and disc.json/h5')
+	print('Checkers Model saved to: gen.json/h5 and disc.json/h5')

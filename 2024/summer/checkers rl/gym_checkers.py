@@ -21,7 +21,7 @@ class EnvCheckers(gym.Env):
     def __init__(self):
         super(EnvCheckers, self).__init__()
         self.game = Game()
-        self.turn = BLUE  # Commence avec les bleus
+        self.turn = BLUE 
         # Define the action space as a move between two squares on the 8x8 board
         self.action_space = spaces.Discrete(64 * 64)  # 64 start positions * 64 end positions
         # Observation space is a 8x8 grid representing the board state

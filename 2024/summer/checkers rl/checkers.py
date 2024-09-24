@@ -38,6 +38,7 @@ Everest Witman - May 2014 - Marlboro College - Programming Workshop
 
 import pygame, sys
 from pygame.locals import *
+from functions import *
 
 pygame.font.init()
 
@@ -175,8 +176,16 @@ class Graphics:
 		self.clock = pygame.time.Clock()
 
 		self.window_size = 600
-		self.screen = pygame.display.set_mode((self.window_size, self.window_size))
+		self.titlefont = pygame.font.Font(None, 36)
+		self.font = pygame.font.Font(None, 18)
+		start_time = time.time()
+		self.screen = pygame.display.set_mode((self.window_size + 200, self.window_size))
 		self.background = pygame.image.load('resources/board.png')
+		self.line = pygame.draw.line(surface = self.screen, color = WHITE, start_pos = (self.window_size, 0), end_pos = (self.window_size, self.window_size + 200), width = 2)
+		draw_box1(self.screen, self.titlefont, self.font, start_time, self.window_size, WHITE, BLUE, RED)
+		#self.box1 = pygame.draw.rect(surface = self.screen, color = WHITE, rect = (self.window_size, 0, 200, 100), width = 2)
+		self.box2 = pygame.draw.rect(surface = self.screen, color = WHITE, rect = (self.window_size, 150, 200, 150), width = 2)
+
 
 		self.square_size = self.window_size >> 3
 		self.piece_size = self.square_size >> 1
