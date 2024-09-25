@@ -35,7 +35,7 @@ Funcitonalities include:
 
 Everest Witman - May 2014 - Marlboro College - Programming Workshop 
 """
-
+import math
 import pygame, sys
 from pygame.locals import *
 from functions import *
@@ -67,6 +67,7 @@ class Game:
 		self.board = Board()
 		
 		self.turn = BLUE
+		self.round_number = 1
 		self.selected_piece = None # a board location. 
 		self.hop = False
 		self.selected_legal_moves = []
@@ -121,7 +122,7 @@ class Game:
 
 	def update(self):
 		"""Calls on the graphics class to update the game display."""
-		self.graphics.update_display(self.board, self.selected_legal_moves, self.selected_piece)
+		self.graphics.update_display(self.board, self.selected_legal_moves, self.selected_piece, self.round_number, self.turn)
 
 	def terminate_game(self):
 		"""Quits the program and ends the game."""
@@ -145,6 +146,7 @@ class Game:
 			self.turn = RED
 		else:
 			self.turn = BLUE
+		self.round_number += 0.5
 
 		self.selected_piece = None
 		self.selected_legal_moves = []
@@ -178,13 +180,13 @@ class Graphics:
 		self.window_size = 600
 		self.titlefont = pygame.font.Font(None, 36)
 		self.font = pygame.font.Font(None, 18)
-		start_time = time.time()
+		self.start_time = time.time()
 		self.screen = pygame.display.set_mode((self.window_size + 200, self.window_size))
 		self.background = pygame.image.load('resources/board.png')
 		self.line = pygame.draw.line(surface = self.screen, color = WHITE, start_pos = (self.window_size, 0), end_pos = (self.window_size, self.window_size + 200), width = 2)
-		draw_box1(self.screen, self.titlefont, self.font, start_time, self.window_size, WHITE, BLUE, RED)
+		#draw_box1(self.screen, self.titlefont, self.font, start_time, self.window_size, WHITE, BLUE, RED)
 		#self.box1 = pygame.draw.rect(surface = self.screen, color = WHITE, rect = (self.window_size, 0, 200, 100), width = 2)
-		self.box2 = pygame.draw.rect(surface = self.screen, color = WHITE, rect = (self.window_size, 150, 200, 150), width = 2)
+		#self.box2 = pygame.draw.rect(surface = self.screen, color = WHITE, rect = (self.window_size, 150, 200, 150), width = 2)
 
 
 		self.square_size = self.window_size >> 3
@@ -199,12 +201,13 @@ class Graphics:
 		pygame.init()
 		pygame.display.set_caption(self.caption)
 
-	def update_display(self, board, legal_moves, selected_piece):
+	def update_display(self, board, legal_moves, selected_piece, round_number, turn):
 		"""
 		This updates the current display.
 		"""
 		self.screen.blit(self.background, (0,0))
-		
+		draw_box1(self.screen, self.titlefont, self.font, self.start_time, self.window_size, round_number, turn, WHITE, BLUE, RED, BLACK)
+
 		self.highlight_squares(legal_moves, selected_piece)
 		self.draw_board_pieces(board)
 

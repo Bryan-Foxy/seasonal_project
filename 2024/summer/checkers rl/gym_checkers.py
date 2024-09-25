@@ -22,6 +22,7 @@ class EnvCheckers(gym.Env):
         super(EnvCheckers, self).__init__()
         self.game = Game()
         self.turn = BLUE 
+        self.round = 1
         # Define the action space as a move between two squares on the 8x8 board
         self.action_space = spaces.Discrete(64 * 64)  # 64 start positions * 64 end positions
         # Observation space is a 8x8 grid representing the board state
@@ -96,7 +97,7 @@ class EnvCheckers(gym.Env):
     
     def render(self, mode='human'):
         """Render the current state of the game."""
-        self.game.graphics.update_display(self.game.board, self.game.selected_legal_moves, self.game.selected_piece)
+        self.game.graphics.update_display(self.game.board, self.game.selected_legal_moves, self.turn, self.round, self.game.selected_piece)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
