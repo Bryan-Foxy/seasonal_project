@@ -76,48 +76,55 @@ class Game:
 		"""Draws the window and board at the beginning of the game"""
 		self.graphics.setup_window()
 
-	def event_loop(self):
+	def event_loop(self, action=None):
 		"""
-		The event loop. This is where events are triggered 
-		(like a mouse click) and then effect the game state.
+		Boucle d'événements. Cela permet de déclencher des événements comme
+		un clic de souris ou un mouvement direct via les coordonnées dans Gym.
+		
+		Paramètre:
+			action (tuple): Tuple d'action directe sous la forme (start_pos, end_pos).
+							Si aucune action n'est donnée, les événements de la souris sont gérés.
 		"""
-		self.mouse_pos = self.graphics.board_coords(pygame.mouse.get_pos()) # what square is the mouse in?
-		if self.selected_piece != None:
-			self.selected_legal_moves = self.board.legal_moves(self.selected_piece, self.hop)
+		if action:
+			start_pos, end_pos = action
+			self.move_piece_direct(start_pos, end_pos)
+		else:
+			self.mouse_pos = self.graphics.board_coords(pygame.mouse.get_pos())  # quelle case la souris survole-t-elle ?
+			if self.selected_piece is not None:
+				self.selected_legal_moves = self.board.legal_moves(self.selected_piece, self.hop)
 
-		for event in pygame.event.get():
+			for event in pygame.event.get():
+				if event.type == QUIT:
+					self.terminate_game()
 
-			if event.type == QUIT:
-				self.terminate_game()
-
-			if event.type == MOUSEBUTTONDOWN:
-				if self.hop == False:
-					if self.board.location(self.mouse_pos).occupant != None and self.board.location(self.mouse_pos).occupant.color == self.turn:
-						self.selected_piece = self.mouse_pos
-
-					elif self.selected_piece != None and self.mouse_pos in self.board.legal_moves(self.selected_piece):
-
-						self.board.move_piece(self.selected_piece, self.mouse_pos)
-					
-						if self.mouse_pos not in self.board.adjacent(self.selected_piece):
-							self.board.remove_piece(((self.selected_piece[0] + self.mouse_pos[0]) >> 1, (self.selected_piece[1] + self.mouse_pos[1]) >> 1))
-						
-							self.hop = True
+				if event.type == MOUSEBUTTONDOWN:
+					if not self.hop:
+						if self.board.location(self.mouse_pos).occupant and self.board.location(self.mouse_pos).occupant.color == self.turn:
 							self.selected_piece = self.mouse_pos
+							# Si des captures sont disponibles, les forcer
+							legal_moves = self.board.legal_moves(self.mouse_pos)
+							if any(abs(move[0] - self.mouse_pos[0]) > 1 for move in legal_moves):
+								self.selected_legal_moves = legal_moves
 
+						elif self.selected_piece and self.mouse_pos in self.selected_legal_moves:
+							self.board.move_piece(self.selected_piece, self.mouse_pos)
+
+							if self.mouse_pos not in self.board.adjacent(self.selected_piece):
+								self.board.remove_piece(((self.selected_piece[0] + self.mouse_pos[0]) >> 1, (self.selected_piece[1] + self.mouse_pos[1]) >> 1))
+								self.hop = True
+								self.selected_piece = self.mouse_pos
+							else:
+								self.end_turn()
+
+					if self.hop:
+						if self.selected_piece and self.mouse_pos in self.board.legal_moves(self.selected_piece, self.hop):
+							self.board.move_piece(self.selected_piece, self.mouse_pos)
+							self.board.remove_piece(((self.selected_piece[0] + self.mouse_pos[0]) >> 1, (self.selected_piece[1] + self.mouse_pos[1]) >> 1))
+
+						if not self.board.legal_moves(self.mouse_pos, self.hop):
+							self.end_turn()
 						else:
-							self.end_turn()
-
-				if self.hop == True:					
-					if self.selected_piece != None and self.mouse_pos in self.board.legal_moves(self.selected_piece, self.hop):
-						self.board.move_piece(self.selected_piece, self.mouse_pos)
-						self.board.remove_piece(((self.selected_piece[0] + self.mouse_pos[0]) >> 1, (self.selected_piece[1] + self.mouse_pos[1]) >> 1))
-
-					if self.board.legal_moves(self.mouse_pos, self.hop) == []:
-							self.end_turn()
-
-					else:
-						self.selected_piece = self.mouse_pos
+							self.selected_piece = self.mouse_pos
 
 
 	def update(self):
@@ -169,6 +176,27 @@ class Game:
 						return False
 
 		return True
+	
+	def move_piece_direct(self, start_pos, end_pos):
+		"""
+		Move directly a piece with its coordinates
+		"""
+		legal_moves = self.board.legal_moves(start_pos)
+
+		if end_pos in legal_moves:
+			self.board.move_piece(start_pos, end_pos)
+
+			if abs(start_pos[0] - end_pos[0]) > 1: 
+				captured_pos = ((start_pos[0] + end_pos[0]) // 2, (start_pos[1] + end_pos[1]) // 2)
+				self.board.remove_piece(captured_pos)
+
+			if self.board.legal_moves(end_pos, self.hop) == []:
+						self.end_turn()
+			else:
+				self.selected_piece = end_pos
+				self.hop = True
+		else:
+			return False
 
 class Graphics:
 	def __init__(self):
@@ -403,33 +431,31 @@ class Board:
 
 		return blind_legal_moves
 
-	def legal_moves(self, pixel, hop = False):
+	def legal_moves(self, pixel, hop=False):
 		"""
 		Returns a list of legal move locations from a given set of coordinates (x,y) on the board.
 		If that location is empty, then legal_moves() returns an empty list.
 		"""
-
 		x = pixel[0]
 		y = pixel[1]
-		blind_legal_moves = self.blind_legal_moves((x,y)) 
+		blind_legal_moves = self.blind_legal_moves((x,y))
 		legal_moves = []
+		capture_moves = []
 
-		if hop == False:
-			for move in blind_legal_moves:
-				if hop == False:
-					if self.on_board(move):
-						if self.location(move).occupant == None:
-							legal_moves.append(move)
-
-						elif self.location(move).occupant.color != self.location((x,y)).occupant.color and self.on_board((move[0] + (move[0] - x), move[1] + (move[1] - y))) and self.location((move[0] + (move[0] - x), move[1] + (move[1] - y))).occupant == None: # is this location filled by an enemy piece?
-							legal_moves.append((move[0] + (move[0] - x), move[1] + (move[1] - y)))
-
-		else: # hop == True
-			for move in blind_legal_moves:
-				if self.on_board(move) and self.location(move).occupant != None:
-					if self.location(move).occupant.color != self.location((x,y)).occupant.color and self.on_board((move[0] + (move[0] - x), move[1] + (move[1] - y))) and self.location((move[0] + (move[0] - x), move[1] + (move[1] - y))).occupant == None: # is this location filled by an enemy piece?
-						legal_moves.append((move[0] + (move[0] - x), move[1] + (move[1] - y)))
-
+		for move in blind_legal_moves:
+			if self.on_board(move):
+				# Vérification des mouvements de capture
+				if self.location(move).occupant and self.location(move).occupant.color != self.location((x,y)).occupant.color:
+					capture_move = (move[0] + (move[0] - x), move[1] + (move[1] - y))
+					if self.on_board(capture_move) and self.location(capture_move).occupant == None:
+						capture_moves.append(capture_move)
+				elif not self.location(move).occupant:  # Mouvements normaux
+					legal_moves.append(move)
+		
+		# Si des mouvements de capture existent, les rendre obligatoires
+		if capture_moves:
+			return capture_moves
+		
 		return legal_moves
 
 	def remove_piece(self, pixel):

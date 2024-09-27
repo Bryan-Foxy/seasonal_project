@@ -12,3 +12,8 @@ Today, I updated the checkers environment to add two boxes that will contain inf
 Wednesday 26/Sept/2024
 ---
 I update the box 1, I make it more dynamic like real time elapsed, round update automaticily also the current player.
+
+---
+Friday 27/Sept/2024
+---
+I update the gym env cuz, I update the reward gestion.
