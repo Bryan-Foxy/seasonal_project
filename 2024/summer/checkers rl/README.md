@@ -17,3 +17,8 @@ I update the box 1, I make it more dynamic like real time elapsed, round update 
 Friday 27/Sept/2024
 ---
 I update the gym env cuz, I update the reward gestion.
+
+---
+30/09/2024
+---
+I update rules, now the env takes position to move, and update the reward gestion to be more efficient, also I created a logs folder to store metadata about the lauching of the env

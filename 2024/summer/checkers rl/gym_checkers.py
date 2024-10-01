@@ -4,6 +4,9 @@ import numpy as np
 from gym import spaces
 from checkers import Game
 from functions import get_metrics, draw_box1
+import uuid
+import os
+import json
 
 # Color definitions
 RED = (255, 0, 0)
@@ -24,6 +27,8 @@ class EnvCheckers(gym.Env):
         self.turn = BLUE
         self.round = 1
         self.start_time = pygame.time.get_ticks()  # Start the timer
+        self.total_reward = 0
+        self.step_rewards = []
         
         # Define the action space (64 start positions * 64 end positions)
         self.action_space = spaces.Discrete(64 * 64)
@@ -38,6 +43,8 @@ class EnvCheckers(gym.Env):
         self.game.setup()
         self.turn = BLUE
         self.round = 1
+        self.total_reward = 0  # Reset total reward
+        self.step_rewards = []  # Clear previous rewards
         return self._get_obs()
 
     def _get_obs(self):
@@ -63,6 +70,20 @@ class EnvCheckers(gym.Env):
         # If capture moves exist, return only those (capture is mandatory)
         return capture_moves if capture_moves else legal_moves
 
+    def _get_mandatory_captures(self):
+        """Check if there are mandatory captures for the current player."""
+        mandatory_captures = []
+        for x in range(8):
+            for y in range(8):
+                piece = self.game.board.matrix[x][y].occupant
+                if piece and piece.color == self.turn:
+                    legal_moves = self._get_legal_moves((x, y))
+                    # Filter only capture moves
+                    capture_moves = [move for move in legal_moves if abs(move[0] - x) > 1]
+                    if capture_moves:
+                        mandatory_captures.append((x, y, capture_moves))
+        return mandatory_captures
+
     def step(self, action):
         """Apply an action and return the next state, reward, done, and info."""
         start_idx = action // 64
@@ -75,8 +96,21 @@ class EnvCheckers(gym.Env):
         print("Coordonnées d'arrivée :", end_pos)
 
         legal_moves = self._get_legal_moves(start_pos)
-
         reward = 0  # Initialisation de la récompense
+        
+        # Vérification des captures obligatoires avant de continuer
+        mandatory_captures = self._get_mandatory_captures()
+        
+        # Si des captures sont obligatoires et que l'action n'est pas une capture
+        if mandatory_captures:
+            for capture in mandatory_captures:
+                if start_pos == (capture[0], capture[1]) and end_pos in capture[2]:
+                    break
+            else:
+                print("Une capture est obligatoire!")
+                reward -= 5  # Pénalité pour ne pas avoir effectué la capture obligatoire
+                self.step_rewards.append(reward)
+                return self._get_obs(), reward, False, {}
 
         if end_pos in legal_moves:
             self.game.board.move_piece(start_pos, end_pos)
@@ -89,9 +123,9 @@ class EnvCheckers(gym.Env):
             else:
                 reward += 1  # Récompense pour avoir effectué un mouvement valide sans capture
 
+            # Alterner les tours
             self.turn = RED if self.turn == BLUE else BLUE
             self.round += 0.5
-
         else:
             print("Mouvement illégal!")
             reward -= 5  # Pénalité pour mouvement illégal
@@ -106,48 +140,12 @@ class EnvCheckers(gym.Env):
             else:
                 reward += 20  # Récompense pour le joueur Bleu s'il a gagné
 
+        self.total_reward += reward
+        self.step_rewards.append(reward)
         obs = self._get_obs()
 
         return obs, reward, done, {}
 
-    def _handle_mouse_events(self):
-        """Handle mouse events to simulate user input."""
-        mouse_pos = self.game.graphics.board_coords(pygame.mouse.get_pos())
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.close()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.game.hop is False:
-                    if self.game.board.location(mouse_pos).occupant and self.game.board.location(mouse_pos).occupant.color == self.turn:
-                        self.game.selected_piece = mouse_pos
-                    elif self.game.selected_piece and mouse_pos in self.game.board.legal_moves(self.game.selected_piece):
-                        self.game.board.move_piece(self.game.selected_piece, mouse_pos)
-                        if mouse_pos not in self.game.board.adjacent(self.game.selected_piece):
-                            captured_pos = ((self.game.selected_piece[0] + mouse_pos[0]) // 2, (self.game.selected_piece[1] + mouse_pos[1]) // 2)
-                            self.game.board.remove_piece(captured_pos)
-                            self.game.hop = True
-                            self.game.selected_piece = mouse_pos
-                        else:
-                            self.end_turn()
-                elif self.game.hop is True:
-                    if self.game.selected_piece and mouse_pos in self.game.board.legal_moves(self.game.selected_piece, self.game.hop):
-                        self.game.board.move_piece(self.game.selected_piece, mouse_pos)
-                        captured_pos = ((self.game.selected_piece[0] + mouse_pos[0]) // 2, (self.game.selected_piece[1] + mouse_pos[1]) // 2)
-                        self.game.board.remove_piece(captured_pos)
-                    if not self.game.board.legal_moves(mouse_pos, self.game.hop):
-                        self.end_turn()
-                    else:
-                        self.game.selected_piece = mouse_pos
-
-    def _compute_reward(self, done):
-        """Compute the reward based on the game state."""
-        if done:
-            if self.turn == RED:
-                return 1  # Reward for Red win
-            else:
-                return -1  # Reward for Blue win
-        return 0  # No reward if the game is still ongoing
-    
     def render(self, mode='human'):
         """Render the current state of the game."""
         self.game.graphics.update_display(self.game.board, self.game.selected_legal_moves, self.turn, self.round, self.game.selected_piece)
@@ -162,6 +160,26 @@ class EnvCheckers(gym.Env):
     def close(self):
         """Close the game environment."""
         pygame.quit()
+    
+    def save_logs(self):
+        """Save logs in a folder with a unique identifier."""
+        log_data = {
+            "total_reward": self.total_reward,
+            "step_rewards": self.step_rewards,
+            "round": self.round,
+            "winner": "RED" if self.turn == RED else "BLUE"
+        }
+        # Generate a unique file name using UUID
+        log_filename = str(uuid.uuid4()) + ".json"
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)  # Create the logs directory if it doesn't exist
+        log_filepath = os.path.join(log_dir, log_filename)
+
+        # Save log data to a JSON file
+        with open(log_filepath, 'w') as log_file:
+            json.dump(log_data, log_file, indent=4)
+        
+        print(f"Logs saved to {log_filepath}")
 
 def main():
     env = EnvCheckers()
@@ -176,6 +194,9 @@ def main():
         print("reward: ", reward)
         print("done: ", done)
         print("info: ", info)
+
+    # Save logs at the end of the game
+    env.save_logs()
 
 if __name__ == "__main__":
     main()
