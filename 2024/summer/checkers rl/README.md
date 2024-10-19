@@ -1,5 +1,7 @@
 [Link of explained ressources](https://blog.paperspace.com/building-a-checkers-gaming-agent-using-neural-networks-and-reinforcement-learning/)
 
+[Checkers motor](https://github.com/everestwitman/Pygame-Checkers/tree/master)
+
 ---
 Tuesday 24/Sept/2024
 ---
@@ -22,3 +24,17 @@ I update the gym env cuz, I update the reward gestion.
 30/09/2024
 ---
 I update rules, now the env takes position to move, and update the reward gestion to be more efficient, also I created a logs folder to store metadata about the lauching of the env
+
+
+---
+17/09/2024
+---
+Update the code and some verification
+
+---
+19/09/2024
+---
+Env checkers beta version finish ! Let's publish for everybody and enjoy ^^
+---
+
+
